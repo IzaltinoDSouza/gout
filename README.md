@@ -10,10 +10,11 @@ it's very easy to use!
 const auto resolution = ids::resolution{.width=800,.height=600};
 
 //configure the window
-ids::gout.window("Draw Blue Rectangle",resolution);
+ids::gout.window("put single pixel on screen",resolution);
 
 //add pixel in the framebuffer
-ids::gout << ids::position{x,y} << ids::rgb{0,0,255};
+ids::gout << ids::position{0,0}
+          << ids::rgb{0,0,255};
 
 //put pixels on the screen
 ids::gout.flush();
@@ -48,8 +49,9 @@ void drawRectangle(const ids::rgb &color)
     {
         for(size_t x{0};x < res.width;++x)
         {
-        	//add color on screen at the position (x,y) 
-            ids::gout << ids::position{x,y} << color;
+            //add color on screen at x,y position 
+            ids::gout << ids::position{x,y}
+                      << color;
         }
     }
 }
