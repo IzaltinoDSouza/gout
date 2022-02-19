@@ -10,6 +10,9 @@
 #include "resolution.h"
 #include "position.h"
 #include "color.h"
+#include "event/quit.h"
+#include "event/keyboard.h"
+#include "event/mouse.h"
 
 using namespace std::chrono_literals;
 
@@ -58,17 +61,17 @@ namespace ids{
             const auto time_end = 
                 std::chrono::high_resolution_clock::now() + time;
             
-            bool running{true};
+            bool is_running{true};
             
             while(std::chrono::high_resolution_clock::now() <= time_end && 
-                  running
+                  is_running
                   )
             {
                 while(SDL_PollEvent(&m_event))
                 {
                     if(m_event.type == SDL_QUIT)
                     {
-                        running = false;
+                        is_running = false;
                         continue;                   
                     }
                 }
@@ -76,7 +79,93 @@ namespace ids{
                 flush();
             }
         }
-        
+        void event(std::function<void(bool &,quit_event,keyboard,mouse)> callback)
+        {
+            bool is_running{true};
+            while(true)
+            {
+                while(SDL_PollEvent(&m_event))
+                {
+                    switch(m_event.type){
+                        case SDL_KEYDOWN:
+                        {
+                            keyboard kb{static_cast<keyboard::keys>(m_event.key.keysym.scancode),
+                                        static_cast<keyboard::modifiers>(m_event.key.keysym.mod),
+                                        static_cast<bool>(m_event.key.repeat),
+                                        true};
+                            callback(is_running,quit_event{},kb,mouse{});
+                        }
+                        break;
+                        case SDL_KEYUP:
+                        {
+                            keyboard kb{static_cast<keyboard::keys>(m_event.key.keysym.scancode),
+                                        static_cast<keyboard::modifiers>(m_event.key.keysym.mod),
+                                        static_cast<bool>(m_event.key.repeat),
+                                        false};
+                            callback(is_running,quit_event{},kb,mouse{});
+                        }
+                        break;
+                        case SDL_QUIT:
+                            is_running = false;
+                        break;
+                        case SDL_MOUSEWHEEL:
+                        {                           
+                            int x = m_event.wheel.x;
+                            int y = m_event.wheel.y;
+                            
+                            if(m_event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED)
+                            {
+                                x *= -1;
+                                y *= -1;
+                            }
+                            mouse mouse{mouse::events::wheel,x,y,x,y};
+                            callback(is_running,quit_event{},keyboard{},mouse);
+                        }
+                        break;
+                        case SDL_MOUSEMOTION:
+                        {                           
+                            int x = m_event.motion.x;
+                            int y = m_event.motion.y;
+                            
+                            mouse mouse{mouse::events::motion,x,y,x,y};
+                            callback(is_running,quit_event{},keyboard{},mouse);
+                        }
+                        break;
+                        case SDL_MOUSEBUTTONDOWN:
+                        {
+                            int x = m_event.button.x;
+                            int y = m_event.button.y;
+                            
+                            auto click = static_cast<mouse::clicks>(m_event.button.clicks); 
+                            
+                            mouse mouse{mouse::events::pressed,x,y,x,y,click};
+                            callback(is_running,quit_event{},keyboard{},mouse);
+                        }
+                        break;
+                        
+                        case SDL_MOUSEBUTTONUP:
+                        {
+                            int x = m_event.button.x;
+                            int y = m_event.button.y;
+                            
+                            auto click = static_cast<mouse::clicks>(m_event.button.clicks); 
+                            
+                            mouse mouse{mouse::events::released,x,y,x,y,click};
+                            callback(is_running,quit_event{},keyboard{},mouse);
+                        }
+                        break;
+                        
+                        default:
+                        break;
+                    }
+                }
+                if(!is_running)
+                {
+                    callback(is_running,quit_event{!is_running},keyboard{},mouse{});
+                    break;
+                }
+            }
+        }
         void flush()
         {
             SDL_UpdateWindowSurface(m_window);
@@ -85,8 +174,7 @@ namespace ids{
         void clear()
         {
             SDL_FillRect(m_surface, nullptr,
-                         SDL_MapRGB(m_surface->format, 0, 0, 0)
-                        );
+                         SDL_MapRGB(m_surface->format, 0, 0, 0));
         }
         
         void close()
